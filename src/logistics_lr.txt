@@ -267,3 +267,36 @@ plt.title("Residual Distribution")
 plt.savefig('Residual Distribution.png')
 files.download('Residual Distribution.png')
 plt.show()
+
+# ==============================================================================
+# Step 7: Interactive Prediction using Gradient Descent Model
+# ==============================================================================
+
+print("\n==============================")
+print("Interactive Prediction using Gradient Descent Model")
+print("==============================\n")
+
+def predict_delivery_time(distance_km, slope=m, intercept=b):
+    """
+    Predicts delivery time using the Gradient Descent model.
+
+    Parameters:
+        distance_km (float): Distance in kilometers
+        slope (float): Learned slope (m)
+        intercept (float): Learned intercept (b)
+    """
+    return intercept + slope * distance_km
+
+print("Type 'exit' to stop predictions.\n")
+
+while True:
+    user_input = input("Enter the distance in km to predict delivery time: ")
+    if user_input.lower() == "exit":
+        print("✅ Exiting prediction loop.")
+        break
+    try:
+        distance_km = float(user_input)
+        predicted_time = predict_delivery_time(distance_km)
+        print(f"📦 Predicted Delivery Time for {distance_km:.2f} km = {predicted_time:.2f} hours\n")
+    except:
+        print("❌ Invalid input. Please enter a numeric value or 'exit' to quit.\n")
