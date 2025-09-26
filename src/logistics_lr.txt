@@ -1,0 +1,269 @@
+# Import all the necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from google.colab import files
+
+# ==============================================================================
+# Step 1: Generating the dataset
+# ==============================================================================
+
+# Set seed for reproducibility of the dataset
+np.random.seed(41)
+
+# Generate dataset with 500 rows
+n = 500
+
+# Generating data for the independent variable (distance) between 5Km to 200Km
+distance = np.random.uniform(5, 200, n)
+
+# Simulate delivery time with some noise and variability
+noise = np.random.normal(0, 2, n)  # noise to simulate realtime factors such as traffic/weather etc.
+
+# In order to simulate real time scenario a standard time of 30 minutes (0.5 hours) is added to include the processing and loading time
+delivery_time = 0.5 + (0.4 * distance) + noise
+
+# Set a minimum realistic delivery time, e.g., 0.5 hours if the noise is negative.
+delivery_time = np.clip(delivery_time, a_min=0.5, a_max=None)
+
+# Create the dataset using Pandas dataframe.
+data = pd.DataFrame({
+    "Distance_km": distance,
+    "DeliveryTime_hr": delivery_time
+})
+
+# Download the dataset generated
+data.to_csv('Logistics_Data.csv')
+files.download("Logistics_Data.csv")
+
+# ==============================================================================
+# Step 2: Exploratory Data Analysis
+# ==============================================================================
+
+print("\n========== Exploratory Data Analysis ==========\n")
+
+print("📊 Generated dataset (first 10 rows)")
+print(data.head(10))
+
+print("\nDataset Shape")
+print(f"Rows: {data.shape[0]}, Columns: {data.shape[1]}")
+
+print("\nIs there any missing values?")
+print(data.isnull().sum())
+
+print("\nStatistical Summary")
+print(data.describe())
+
+# ==============================================================================
+# Step 3: Visualization
+# ==============================================================================
+
+# A. Histogram
+# create a figure with two sublots for Histograms of Independent and Dependent variables.
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+# Histogram plot to view the distribution/spread of the data
+# Subplot 1: Histogram for Distance
+axes[0].hist(data["Distance_km"], bins=10, color="skyblue", edgecolor="black")
+axes[0].set_title("Distribution of Distance_km")
+axes[0].set_xlabel("Distance_km")
+axes[0].set_ylabel("Frequency")
+
+# Subplot 2: Histogram for Delivery time.
+axes[1].hist(data["DeliveryTime_hr"], bins=10, color="lightgreen", edgecolor="black")
+axes[1].set_title("Distribution of DeliveryTime_hr")
+axes[1].set_xlabel("DeliveryTime_hr")
+axes[1].set_ylabel("Frequency")
+
+# Show the plots
+print("\n========== Histogram Plot ==========\n")
+plt.tight_layout()
+plt.savefig('Data Distribution.png')
+files.download('Data Distribution.png')
+plt.show()
+
+# B. IQR-Based Outlier Detection and Visualization
+
+def detect_outliers_iqr(column):
+    # Detects outliers in a numerical column using the Interquartile Range (IQR) method.
+    # Identifies Q1, Q3 and computes IQR. Then determines the outlier bounds.
+    # Return values outside these bounds as outliers
+    Q1 = column.quantile(0.25)
+    Q3 = column.quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    outliers = column[(column < lower_bound) | (column > upper_bound)]
+    return outliers, lower_bound, upper_bound
+
+print("\n========== Outlier detection and Box Plot ==========\n")
+# Detect outliers in Distance
+exp_outliers, exp_lower, exp_upper = detect_outliers_iqr(data["Distance_km"])
+print("Distance_km Outliers:\n", exp_outliers)
+
+# Detect outliers in Delivery time
+sal_outliers, sal_lower, sal_upper = detect_outliers_iqr(data["DeliveryTime_hr"])
+print("\nDeliveryTime_hr:\n", sal_outliers)
+
+# ---- Box plots for visualization ----
+
+# create a figure with two sublots
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+# Box plot for Distance
+axes[0].boxplot(data["Distance_km"], vert=True, patch_artist=True)
+axes[0].set_title("Box Plot of Distance_km")
+axes[0].set_ylabel("Distance_km")
+
+# Box plot for Delivery time
+axes[1].boxplot(data["DeliveryTime_hr"], vert=True, patch_artist=True)
+axes[1].set_title("Box Plot of DeliveryTime_hr")
+axes[1].set_ylabel("DeliveryTime_hr")
+
+# Show the plots
+print("\n")
+plt.tight_layout()
+plt.savefig('Box Plots.png')
+files.download('Box Plots.png')
+plt.show()
+
+# C. Scatter plot to visualize the relationship between Distance and Delivery time.
+print("\n========== Scatter Plot (Distance_km vs DeliveryTime_hr) ==========\n")
+plt.figure(figsize=(8, 6))
+plt.scatter(data["Distance_km"], data["DeliveryTime_hr"], color="blue", edgecolors="black", alpha=0.7)
+plt.title("Scatter Plot: Distance_km vs DeliveryTime_hr")
+plt.xlabel("Distance_km")
+plt.ylabel("DeliveryTime_hr")
+plt.savefig('Relationship between Distance_km and DeliveryTime_hr.png')
+files.download('Relationship between Distance_km and DeliveryTime_hr.png')
+plt.show()
+
+# D: Computing correlation matrix and Heatmap visualization.
+corr_matrix = data.corr()
+
+# Plot Heatmap using Seaborn library
+print("\n========== Correlation Heatmap between Distance_km and DeliveryTime_hr ==========\n")
+plt.figure(figsize=(6, 4))
+sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", cbar=True)
+plt.title("Correlation Heatmap")
+plt.savefig('Correlation Heatmap.png')
+files.download('Correlation Heatmap.png')
+plt.show()
+
+# ==============================================================================
+# Step 4: Linear Regression (sklearn)
+# ==============================================================================
+
+print("\n==============================")
+print("Linear Regression (sklearn)")
+print("==============================")
+print("\n")
+
+# Define feature (X -> Distance_km) and target (y -> DeliveryTime_hr)
+X = data[["Distance_km"]].values # feature must be 2D
+y = data["DeliveryTime_hr"].values # target is 1D
+
+# Create  model
+model = LinearRegression()
+model.fit(X, y)
+
+# Predictions
+y_pred = model.predict(X)
+print("Intercept (b0):", model.intercept_) # calculate intercept
+print("Slope (b1):", model.coef_[0]) # calculate slope
+
+# Plot regression line
+plt.scatter(X, y, color="green", alpha=0.7, label="Data Points")
+plt.plot(X, y_pred, color="red", linewidth=2, label="Regression Line")
+plt.xlabel("Distance_km")
+plt.ylabel("DeliveryTime_hr")
+plt.title("Linear Regression with sklearn")
+plt.legend()
+plt.savefig('Linear Regression with sklearn.png')
+files.download('Linear Regression with sklearn.png')
+plt.show()
+
+
+# ==============================================================================
+# Step 5: Linear Regression with Gradient Descent
+# ==============================================================================
+
+print("\n==============================")
+print("Linear Regression (Gradient Descent Implementation)")
+print("==============================")
+print("\n")
+
+# Initialize parameters
+m = 0 # slope
+b = 0 # intercept
+learning_rate = 0.00001
+epochs = 1000
+n = float(len(X))
+
+# Gradient Descent Loop
+for i in range(epochs):
+  y_predicted = m * X.flatten() + b
+  # Calculate Gradients
+  D_m = (-2/n) * sum(X.flatten() * (y - y_predicted))
+  D_b = (-2/n) * sum(y - y_predicted)
+  # Update parameters
+  m = m - learning_rate * D_m
+  b = b - learning_rate * D_b
+
+print("Final Parameters after Gradient Descent:")
+print("Slope (m):", m)
+print("Intercept (b):", b)
+
+# Plot Gradient Descent Line
+plt.scatter(X, y, color="blue", alpha=0.7, label="Data Points")
+plt.plot(X, m * X + b, color="green", linewidth=2, label="Gradient Descent Line")
+plt.xlabel("Distance_km")
+plt.ylabel("DeliveryTime_hr")
+plt.title("Linear Regression using Gradient Descent")
+plt.legend()
+plt.savefig('Linear Regression using Gradient Descent.png')
+files.download('Linear Regression using Gradient Descent.png')
+plt.show()
+
+# ==============================================================================
+# Model Evaluation Metrics
+# ==============================================================================
+
+print("\n==============================")
+print("Model Evaluation Metrics")
+print("==============================")
+print("\n")
+
+# Calculate evaluation metrics
+mae = mean_absolute_error(y, y_pred) #mean absolute error
+mse = mean_squared_error(y, y_pred) #mean squared erro
+rmse = np.sqrt(mse) #root mean squared error
+r2 = r2_score(y, y_pred) #R2 score
+
+print("Mean Absolute Error (MAE):", mae)
+print("Mean Squared Error (MSE):", mse)
+print("Root Mean Squared Error (RMSE):", rmse)
+print("R-squared (R2):", r2)
+
+# Calculate the Residuals
+residuals = y - y_pred
+plt.scatter(y_pred, residuals, color="purple", alpha=0.7)
+plt.axhline(y=0, color="red", linestyle="--", linewidth=2)
+plt.xlabel("Predicted Distance")
+plt.ylabel("Residuals")
+plt.title("Residual Plot")
+plt.savefig('Residual Plot.png')
+files.download('Residual Plot.png')
+plt.show()
+
+# Distrubution of residuals (should be normally distributed)
+plt.hist(residuals, color="red")
+plt.title("Residual Distribution")
+plt.savefig('Residual Distribution.png')
+files.download('Residual Distribution.png')
+plt.show()
